@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type React from 'react';
 import { Search, Plus, Shield, BarChart2, Lock, Zap, LogOut } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
@@ -11,6 +11,8 @@ import CredentialModal from './CredentialModal';
 import SecurityPanel from './SecurityPanel';
 import PasswordGenerator from './PasswordGenerator';
 import styles from './Dashboard.module.css';
+import { useAutoLock } from '@/lib/useAutoLock';
+import { useBreachCheck } from '@/lib/useBreachCheck';
 
 type Panel = 'vault' | 'security' | 'generator';
 
@@ -19,6 +21,13 @@ export default function Dashboard() {
     const [activePanel, setActivePanel] = useState<Panel>('vault');
     const [showAddModal, setShowAddModal] = useState(false);
     const [searchFocused, setSearchFocused] = useState(false);
+
+    // Auto-lock after 5 minutes of inactivity
+    const lockVault = useCallback(() => dispatch({ type: 'VAULT_LOCKED' }), [dispatch]);
+    useAutoLock(state.isVaultUnlocked, lockVault);
+
+    // Background breach check on vault unlock
+    useBreachCheck();
 
     const filteredCreds = useMemo(() => {
         const q = state.searchQuery.toLowerCase().trim();
@@ -95,6 +104,20 @@ export default function Dashboard() {
 
             {/* ── Main ── */}
             <main className={styles.main}>
+                {/* Mobile top bar (visible below 768px) */}
+                <div className={styles.mobileHeader}>
+                    <div className={styles.mobileLogoRow}>
+                        <div className={styles.logoMark}><Shield size={16} strokeWidth={1.5} /></div>
+                        <span className={styles.logoText}>Onyx</span>
+                    </div>
+                    <div className={styles.mobileActions}>
+                        <button className={styles.mobileLockBtn} onClick={() => dispatch({ type: 'VAULT_LOCKED' })}>
+                            <LogOut size={16} />
+                        </button>
+                        <UserButton />
+                    </div>
+                </div>
+
                 {activePanel === 'vault' && (
                     <>
                         <div className={styles.header}>

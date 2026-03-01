@@ -14,6 +14,7 @@ export interface Credential {
     lastCopied?: number;
     isFavorite: boolean;
     passwordStrength: PasswordStrength;
+    isBreached?: boolean;   // true if password found in HIBP database
     tags: string[];
 }
 

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useCallback } from 'react';
-import { Copy, Eye, EyeOff, Star, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Copy, Eye, EyeOff, Star, Edit, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Credential } from '@/lib/types';
 import { useStore } from '@/lib/store';
 import { copyToClipboard, getFaviconUrl, timeAgo, generatePassword, getPasswordStrength } from '@/lib/utils';
@@ -152,6 +152,12 @@ export default function CredentialCard({ credential }: Props) {
                         <span className={styles.strengthDot} style={{ background: strengthColor }} />
                         {credential.passwordStrength}
                     </span>
+                    {credential.isBreached && (
+                        <span className={styles.breachBadge}>
+                            <AlertTriangle size={11} />
+                            Breached
+                        </span>
+                    )}
                     <span className={styles.updatedAt}>{timeAgo(credential.updatedAt)}</span>
                     <button className={styles.regenBtn} onClick={handleRegenPassword} title="Regenerate password">
                         <RefreshCw size={12} />
