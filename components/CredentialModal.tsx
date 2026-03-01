@@ -22,6 +22,7 @@ export default function CredentialModal({ credential, onClose }: Props) {
     const [notes, setNotes] = useState(credential?.notes ?? '');
     const [category, setCategory] = useState<Category>(credential?.category ?? 'other');
     const [showPassword, setShowPassword] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const strength = getPasswordStrength(password);
     const score = getStrengthScore(password);
@@ -46,6 +47,7 @@ export default function CredentialModal({ credential, onClose }: Props) {
             return;
         }
 
+        setIsSubmitting(true);
         try {
             if (isEdit && credential) {
                 await editCredential(credential.id, { name, username, password, url, notes, category });
@@ -57,6 +59,7 @@ export default function CredentialModal({ credential, onClose }: Props) {
             onClose();
         } catch {
             toast('Failed to save. Please try again.', 'error');
+            setIsSubmitting(false);
         }
     }, [isEdit, credential, name, username, password, url, notes, category, addCredential, editCredential, toast, onClose]);
 
@@ -189,8 +192,10 @@ export default function CredentialModal({ credential, onClose }: Props) {
 
                     {/* Actions */}
                     <div className={styles.formActions}>
-                        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn btn-primary">{isEdit ? 'Save Changes' : 'Add to Vault'}</button>
+                        <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+                        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                            {isSubmitting ? 'Saving...' : (isEdit ? 'Save Changes' : 'Add to Vault')}
+                        </button>
                     </div>
                 </form>
             </div>
