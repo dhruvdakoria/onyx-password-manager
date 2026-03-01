@@ -189,7 +189,7 @@ export default function LockScreen() {
                         <div className={styles.logoIcon}><Shield size={22} strokeWidth={1.5} /></div>
                         <span className={styles.logoText}>Onyx</span>
                     </div>
-                    <UserButton afterSignOutUrl="/sign-in" />
+                    <UserButton />
                 </div>
 
                 <h1 className={styles.title}>{titles[mode]}</h1>

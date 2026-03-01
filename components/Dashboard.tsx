@@ -40,7 +40,9 @@ export default function Dashboard() {
 
     const score = state.securityScore;
     const weakCount = state.credentials.filter(c => c.passwordStrength === 'weak').length;
-    const scoreColor = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
+    const hasItems = score >= 0;
+    const displayScore = hasItems ? score : 0;
+    const scoreColor = !hasItems ? 'var(--text-tertiary)' : score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
 
     return (
         <div className={styles.root}>
@@ -71,10 +73,10 @@ export default function Dashboard() {
 
                 {/* Security Score Ring */}
                 <div className={styles.scoreWidget}>
-                    <ScoreRing score={score} color={scoreColor} />
+                    <ScoreRing score={displayScore} color={scoreColor} />
                     <div className={styles.scoreInfo}>
                         <span className={styles.scoreLabel}>{scoreLabel(score)}</span>
-                        <span className={styles.scoreValue}>{score}<span className={styles.scoreDenom}>/100</span></span>
+                        <span className={styles.scoreValue}>{hasItems ? score : '—'}<span className={styles.scoreDenom}>/100</span></span>
                     </div>
                     <p className={styles.scoreHint}>Security Health</p>
                 </div>
@@ -85,7 +87,7 @@ export default function Dashboard() {
                         <span>Lock Vault</span>
                     </button>
                     <div className={styles.userRow}>
-                        <UserButton afterSignOutUrl="/sign-in" />
+                        <UserButton />
                         <span className={styles.userHint}>Account</span>
                     </div>
                 </div>

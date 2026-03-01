@@ -127,13 +127,14 @@ export async function copyToClipboard(text: string): Promise<boolean> {
    SECURITY SCORE
    ================================================ */
 export function computeSecurityScore(credentials: { passwordStrength: PasswordStrength }[]): number {
-    if (!credentials.length) return 0;
+    if (!credentials.length) return -1; // sentinel for "no items"
     const pts: Record<PasswordStrength, number> = { weak: 0, medium: 40, strong: 75, excellent: 100 };
     const total = credentials.reduce((s, c) => s + pts[c.passwordStrength], 0);
     return Math.round(total / credentials.length);
 }
 
 export function scoreLabel(score: number): string {
+    if (score < 0) return 'No Items';
     if (score >= 90) return 'Excellent';
     if (score >= 70) return 'Strong';
     if (score >= 45) return 'Fair';

@@ -29,7 +29,30 @@ export default function SecurityPanel() {
     const weakCreds = credentials.filter(c => c.passwordStrength === 'weak');
     const mediumCreds = credentials.filter(c => c.passwordStrength === 'medium');
 
-    const scoreColor = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
+    const scoreColor = score < 0 ? 'var(--text-tertiary)' : score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
+    const displayScore = score < 0 ? 0 : score;
+
+    if (credentials.length === 0) {
+        return (
+            <div className={styles.root}>
+                <div className={styles.header}>
+                    <div>
+                        <h1 className={styles.title}>Security Health</h1>
+                        <p className={styles.subtitle}>Your vault's security at a glance</p>
+                    </div>
+                </div>
+                <div className={styles.scoreCard}>
+                    <LargeScoreRing score={0} color="var(--text-tertiary)" />
+                    <div className={styles.scoreText}>
+                        <span className={styles.scoreBig} style={{ color: 'var(--text-tertiary)' }}>—</span>
+                        <span className={styles.scoreOf}>/100</span>
+                        <p className={styles.scoreLabel}>No Items Yet</p>
+                        <p className={styles.scoreDesc}>Add credentials to see your security score</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.root}>
@@ -42,9 +65,9 @@ export default function SecurityPanel() {
 
             {/* Score Big */}
             <div className={styles.scoreCard}>
-                <LargeScoreRing score={score} color={scoreColor} />
+                <LargeScoreRing score={displayScore} color={scoreColor} />
                 <div className={styles.scoreText}>
-                    <span className={styles.scoreBig} style={{ color: scoreColor }}>{score}</span>
+                    <span className={styles.scoreBig} style={{ color: scoreColor }}>{displayScore}</span>
                     <span className={styles.scoreOf}>/100</span>
                     <p className={styles.scoreLabel}>{scoreLabel(score)}</p>
                     <p className={styles.scoreDesc}>Based on {credentials.length} passwords</p>

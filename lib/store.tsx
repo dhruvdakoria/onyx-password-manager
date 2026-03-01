@@ -59,7 +59,7 @@ const initialState: AppState = {
     vaultConfig: null,
     searchQuery: '',
     activeCategory: 'all',
-    securityScore: 0,
+    securityScore: -1,
     isLoading: false,
     toasts: [],
 };
