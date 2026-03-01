@@ -15,6 +15,10 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
         const err = await res.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(err.error ?? `API error ${res.status}`);
     }
+    // Handle 204 No Content (e.g., DELETE responses)
+    if (res.status === 204 || res.headers.get('content-length') === '0') {
+        return undefined as T;
+    }
     return res.json();
 }
 

@@ -96,8 +96,7 @@ export default function Dashboard() {
                         <span>Lock Vault</span>
                     </button>
                     <div className={styles.userRow}>
-                        <UserButton />
-                        <span className={styles.userHint}>Account</span>
+                        <UserButton showName />
                     </div>
                 </div>
             </aside>

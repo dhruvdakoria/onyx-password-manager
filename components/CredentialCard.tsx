@@ -1,6 +1,6 @@
 'use client';
 import { useState, useCallback } from 'react';
-import { Copy, Eye, EyeOff, Star, Edit, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Copy, Eye, EyeOff, Star, Edit, Trash2, RefreshCw, AlertTriangle, ExternalLink } from 'lucide-react';
 import { Credential } from '@/lib/types';
 import { useStore } from '@/lib/store';
 import { copyToClipboard, getFaviconUrl, timeAgo, generatePassword, getPasswordStrength } from '@/lib/utils';
@@ -42,6 +42,7 @@ export default function CredentialCard({ credential }: Props) {
     }, [credential.id, editCredential, toast]);
 
     const handleDelete = useCallback(async () => {
+        // We still have the native confirm here, but PM wanted a modal. Let's fix delete bug first.
         if (confirm(`Delete "${credential.name}"? This cannot be undone.`)) {
             try {
                 await removeCredential(credential.id);
@@ -52,117 +53,184 @@ export default function CredentialCard({ credential }: Props) {
         }
     }, [credential, removeCredential, toast]);
 
+    const handleLaunchAndCopy = useCallback(async () => {
+        if (!credential.url) return;
+        const ok = await copyToClipboard(credential.password);
+        if (ok) {
+            setCopied('password');
+            dispatch({ type: 'MARK_COPIED', id: credential.id });
+            toast(`Password copied! Launching ${credential.name}…`);
+            setTimeout(() => setCopied(null), 2000);
+
+            // Launch URL
+            let targetUrl = credential.url;
+            if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+                targetUrl = 'https://' + targetUrl;
+            }
+            window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        } else {
+            toast('Failed to copy password', 'error');
+        }
+    }, [credential.url, credential.password, credential.name, dispatch, toast]);
+
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // ... rest of the code is unchanged until the render ...
+    const confirmDelete = useCallback(async () => {
+        try {
+            await removeCredential(credential.id);
+            toast(`"${credential.name}" deleted`, 'info');
+        } catch {
+            toast('Failed to delete. Try again.', 'error');
+            setIsDeleting(false);
+        }
+    }, [credential, removeCredential, toast]);
+
     const strengthColors: Record<string, string> = {
         weak: 'var(--red)',
         medium: 'var(--yellow)',
         strong: 'var(--green)',
         excellent: 'var(--green)',
     };
-
     const strengthColor = strengthColors[credential.passwordStrength] ?? 'var(--text-tertiary)';
 
     return (
         <>
             <div className={styles.card}>
-                {/* Header */}
-                <div className={styles.header}>
-                    <div className={styles.identity}>
-                        <div className={styles.favicon}>
-                            {!imgError ? (
-                                <img
-                                    src={faviconUrl}
-                                    alt={credential.name}
-                                    onError={() => setImgError(true)}
-                                    width={28}
-                                    height={28}
-                                />
-                            ) : (
-                                <span className={styles.faviconFallback}>{credential.name[0].toUpperCase()}</span>
-                            )}
-                        </div>
-                        <div>
-                            <p className={styles.name}>{credential.name}</p>
-                            <p className={styles.url}>{credential.url || credential.category}</p>
+                {isDeleting ? (
+                    <div className={styles.deleteConfirmOverlay}>
+                        <AlertTriangle size={32} color="var(--red)" style={{ marginBottom: 12 }} />
+                        <h3 className={styles.deleteConfirmTitle}>Delete '{credential.name}'?</h3>
+                        <p className={styles.deleteConfirmText}>This action cannot be undone.</p>
+                        <div className={styles.deleteConfirmActions}>
+                            <button className="btn" onClick={() => setIsDeleting(false)}>Cancel</button>
+                            <button className="btn" style={{ background: 'var(--red)', color: 'white', borderColor: 'var(--red)' }} onClick={confirmDelete}>Delete</button>
                         </div>
                     </div>
-                    <div className={styles.actions}>
-                        <button
-                            className={`${styles.actionBtn} ${credential.isFavorite ? styles.starred : ''}`}
-                            onClick={() => toggleFavorite(credential.id)}
-                            aria-label="Toggle favorite"
-                        >
-                            <Star size={14} fill={credential.isFavorite ? 'currentColor' : 'none'} />
-                        </button>
-                        <button className={styles.actionBtn} onClick={() => setIsEditing(true)} aria-label="Edit">
-                            <Edit size={14} />
-                        </button>
-                        <button className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={handleDelete} aria-label="Delete">
-                            <Trash2 size={14} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Fields */}
-                <div className={styles.fields}>
-                    {/* Username */}
-                    <div className={styles.field}>
-                        <span className={styles.fieldLabel}>Username</span>
-                        <div className={styles.fieldRow}>
-                            <span className={styles.fieldValue}>{credential.username}</span>
-                            <button
-                                className={`${styles.copyBtn} ${copied === 'username' ? styles.copyBtnDone : ''}`}
-                                onClick={() => handleCopy('username')}
-                                aria-label="Copy username"
-                            >
-                                {copied === 'username' ? '✓' : <Copy size={13} />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Password */}
-                    <div className={styles.field}>
-                        <span className={styles.fieldLabel}>Password</span>
-                        <div className={styles.fieldRow}>
-                            <span className={`${styles.fieldValue} ${styles.password}`}>
-                                {showPassword ? credential.password : '••••••••••••'}
-                            </span>
-                            <div className={styles.fieldButtons}>
+                ) : (
+                    <>
+                        {/* Header */}
+                        <div className={styles.header}>
+                            <div className={styles.identity}>
+                                <div className={styles.favicon}>
+                                    {!imgError ? (
+                                        <img
+                                            src={faviconUrl}
+                                            alt={credential.name}
+                                            onError={() => setImgError(true)}
+                                            width={28}
+                                            height={28}
+                                        />
+                                    ) : (
+                                        <span className={styles.faviconFallback}>{credential.name[0].toUpperCase()}</span>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className={styles.name}>{credential.name}</p>
+                                    {credential.url ? (
+                                        <a
+                                            href={credential.url.startsWith('http') ? credential.url : `https://${credential.url}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`${styles.url} ${styles.urlLink}`}
+                                        >
+                                            {credential.url}
+                                        </a>
+                                    ) : (
+                                        <p className={styles.url}>{credential.category}</p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className={styles.actions}>
+                                {credential.url && (
+                                    <button
+                                        className={styles.actionBtn}
+                                        onClick={handleLaunchAndCopy}
+                                        aria-label="Launch and Copy Password"
+                                        title="Copy Password & Open URL"
+                                    >
+                                        <ExternalLink size={14} />
+                                    </button>
+                                )}
                                 <button
-                                    className={styles.copyBtn}
-                                    onClick={() => setShowPassword(v => !v)}
-                                    aria-label="Toggle password"
+                                    className={`${styles.actionBtn} ${credential.isFavorite ? styles.starred : ''}`}
+                                    onClick={() => toggleFavorite(credential.id)}
+                                    aria-label="Toggle favorite"
                                 >
-                                    {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                                    <Star size={14} fill={credential.isFavorite ? 'currentColor' : 'none'} />
                                 </button>
-                                <button
-                                    className={`${styles.copyBtn} ${copied === 'password' ? styles.copyBtnDone : ''}`}
-                                    onClick={() => handleCopy('password')}
-                                    aria-label="Copy password"
-                                >
-                                    {copied === 'password' ? '✓' : <Copy size={13} />}
+                                <button className={styles.actionBtn} onClick={() => setIsEditing(true)} aria-label="Edit">
+                                    <Edit size={14} />
+                                </button>
+                                <button className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={() => setIsDeleting(true)} aria-label="Delete">
+                                    <Trash2 size={14} />
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* Footer */}
-                <div className={styles.footer}>
-                    <span className={styles.strength} style={{ color: strengthColor }}>
-                        <span className={styles.strengthDot} style={{ background: strengthColor }} />
-                        {credential.passwordStrength}
-                    </span>
-                    {credential.isBreached && (
-                        <span className={styles.breachBadge}>
-                            <AlertTriangle size={11} />
-                            Breached
-                        </span>
-                    )}
-                    <span className={styles.updatedAt}>{timeAgo(credential.updatedAt)}</span>
-                    <button className={styles.regenBtn} onClick={handleRegenPassword} title="Regenerate password">
-                        <RefreshCw size={12} />
-                    </button>
-                </div>
+                        {/* Fields */}
+                        <div className={styles.fields}>
+                            {/* Username */}
+                            <div className={styles.field}>
+                                <span className={styles.fieldLabel}>Username</span>
+                                <div className={styles.fieldRow}>
+                                    <span className={styles.fieldValue}>{credential.username}</span>
+                                    <button
+                                        className={`${styles.copyBtn} ${copied === 'username' ? styles.copyBtnDone : ''}`}
+                                        onClick={() => handleCopy('username')}
+                                        aria-label="Copy username"
+                                    >
+                                        {copied === 'username' ? '✓' : <Copy size={13} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Password */}
+                            <div className={styles.field}>
+                                <span className={styles.fieldLabel}>Password</span>
+                                <div className={styles.fieldRow}>
+                                    <span className={`${styles.fieldValue} ${styles.password}`}>
+                                        {showPassword ? credential.password : '••••••••••••'}
+                                    </span>
+                                    <div className={styles.fieldButtons}>
+                                        <button
+                                            className={styles.copyBtn}
+                                            onClick={() => setShowPassword(v => !v)}
+                                            aria-label="Toggle password"
+                                        >
+                                            {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                                        </button>
+                                        <button
+                                            className={`${styles.copyBtn} ${copied === 'password' ? styles.copyBtnDone : ''}`}
+                                            onClick={() => handleCopy('password')}
+                                            aria-label="Copy password"
+                                        >
+                                            {copied === 'password' ? '✓' : <Copy size={13} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className={styles.footer}>
+                            <span className={styles.strength} style={{ color: strengthColor }}>
+                                <span className={styles.strengthDot} style={{ background: strengthColor }} />
+                                {credential.passwordStrength}
+                            </span>
+                            {credential.isBreached && (
+                                <span className={styles.breachBadge}>
+                                    <AlertTriangle size={11} />
+                                    Breached
+                                </span>
+                            )}
+                            <span className={styles.updatedAt}>{timeAgo(credential.updatedAt)}</span>
+                            <button className={styles.regenBtn} onClick={handleRegenPassword} title="Regenerate password">
+                                <RefreshCw size={12} />
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
 
             {isEditing && <CredentialModal credential={credential} onClose={() => setIsEditing(false)} />}

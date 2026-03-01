@@ -1,6 +1,6 @@
 'use client';
-import { useState, useCallback, useEffect } from 'react';
-import { Delete, Fingerprint, Shield, RotateCcw, Loader } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Delete, Fingerprint, Shield, RotateCcw, Loader, LockKeyhole } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { UserButton } from '@clerk/nextjs';
 import { unlockWithRecoveryKey, changePinEncryption } from '@/lib/crypto';
@@ -23,6 +23,9 @@ export default function LockScreen() {
     const [shake, setShake] = useState(false);
     const [wrongAttempts, setWrongAttempts] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+    const [lockoutRemaining, setLockoutRemaining] = useState(0);
+    const lockoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Keep mode in sync with vault config loading
     useEffect(() => {
@@ -30,13 +33,44 @@ export default function LockScreen() {
         if (state.hasPinSetup && mode === 'setup-new') setMode('unlock');
     }, [state.hasPinSetup]);
 
+    // Lockout countdown timer
+    useEffect(() => {
+        if (!lockoutUntil) {
+            setLockoutRemaining(0);
+            return;
+        }
+        const tick = () => {
+            const remaining = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+            setLockoutRemaining(remaining);
+            if (remaining <= 0) {
+                setLockoutUntil(null);
+                if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current);
+            }
+        };
+        tick();
+        lockoutTimerRef.current = setInterval(tick, 1000);
+        return () => { if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current); };
+    }, [lockoutUntil]);
+
+    const isLockedOut = lockoutRemaining > 0;
+
     const triggerShake = () => {
         setShake(true);
         setTimeout(() => setShake(false), 600);
     };
 
+    const applyLockout = (attempts: number) => {
+        if (attempts >= 10) {
+            setLockoutUntil(Date.now() + 5 * 60 * 1000); // 5 minutes
+            toast('Too many attempts. Locked for 5 minutes.', 'error');
+        } else if (attempts >= 5) {
+            setLockoutUntil(Date.now() + 30 * 1000); // 30 seconds
+            toast('Too many attempts. Locked for 30 seconds.', 'error');
+        }
+    };
+
     const handleDigit = useCallback(async (digit: string) => {
-        if (isSubmitting) return;
+        if (isSubmitting || isLockedOut) return;
 
         const append = (current: string, setter: (v: string) => void): string => {
             if (current.length >= MAX_PIN_LENGTH) return current;
@@ -81,6 +115,7 @@ export default function LockScreen() {
                 setIsSubmitting(true);
                 try {
                     await unlockVault(updated);
+                    setWrongAttempts(0); // Reset on success
                 } catch (err: unknown) {
                     setPin('');
                     setIsSubmitting(false);
@@ -88,7 +123,10 @@ export default function LockScreen() {
                         const attempts = wrongAttempts + 1;
                         setWrongAttempts(attempts);
                         triggerShake();
-                        toast(`Incorrect PIN. ${attempts >= 3 ? 'Tip: Use Forgot PIN if locked out.' : 'Try again.'}`, 'error');
+                        applyLockout(attempts);
+                        if (attempts < 5) {
+                            toast(`Incorrect PIN. ${5 - attempts} attempts remaining.`, 'error');
+                        }
                     } else {
                         toast('Could not connect. Check network and try again.', 'error');
                     }
@@ -231,19 +269,29 @@ export default function LockScreen() {
 
                         {/* Loading overlay on numpad */}
                         <div className={styles.numpad}>
-                            {digits.map((d, i) => {
-                                if (d === '') return <div key={i} className={styles.numpadEmpty} />;
-                                if (d === '⌫') return (
-                                    <button key={i} className={styles.numpadDelete} onClick={handleDelete} disabled={isSubmitting}>
-                                        <Delete size={20} />
-                                    </button>
-                                );
-                                return (
-                                    <button key={i} className={styles.numpadKey} onClick={() => handleDigit(d)} disabled={isSubmitting}>
-                                        {isSubmitting && currentLen === MAX_PIN_LENGTH ? <Loader size={16} className={styles.spinner} /> : d}
-                                    </button>
-                                );
-                            })}
+                            {isLockedOut ? (
+                                <div className={styles.lockoutOverlay}>
+                                    <LockKeyhole size={48} className={styles.lockoutIcon} />
+                                    <p className={styles.lockoutText}>Vault Locked</p>
+                                    <p className={styles.lockoutTimer}>
+                                        Try again in {Math.floor(lockoutRemaining / 60)}:{(lockoutRemaining % 60).toString().padStart(2, '0')}
+                                    </p>
+                                </div>
+                            ) : (
+                                digits.map((d, i) => {
+                                    if (d === '') return <div key={i} className={styles.numpadEmpty} />;
+                                    if (d === '⌫') return (
+                                        <button key={i} className={styles.numpadDelete} onClick={handleDelete} disabled={isSubmitting}>
+                                            <Delete size={20} />
+                                        </button>
+                                    );
+                                    return (
+                                        <button key={i} className={styles.numpadKey} onClick={() => handleDigit(d)} disabled={isSubmitting}>
+                                            {isSubmitting && currentLen === MAX_PIN_LENGTH ? <Loader size={16} className={styles.spinner} /> : d}
+                                        </button>
+                                    );
+                                })
+                            )}
                         </div>
 
                         {mode === 'unlock' && (

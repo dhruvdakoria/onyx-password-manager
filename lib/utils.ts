@@ -105,10 +105,13 @@ export function timeAgo(timestamp: number): string {
 /* ================================================
    CLIPBOARD
    ================================================ */
-export async function copyToClipboard(text: string): Promise<boolean> {
+let clipboardTimeout: NodeJS.Timeout | null = null;
+
+export async function copyToClipboard(text: string, autoClearMs: number = 30000): Promise<boolean> {
+    let success = false;
     try {
         await navigator.clipboard.writeText(text);
-        return true;
+        success = true;
     } catch {
         // fallback
         const el = document.createElement('textarea');
@@ -117,10 +120,31 @@ export async function copyToClipboard(text: string): Promise<boolean> {
         el.style.opacity = '0';
         document.body.appendChild(el);
         el.select();
-        const ok = document.execCommand('copy');
+        success = document.execCommand('copy');
         document.body.removeChild(el);
-        return ok;
     }
+
+    if (success && text !== '') {
+        if (clipboardTimeout) clearTimeout(clipboardTimeout);
+        clipboardTimeout = setTimeout(async () => {
+            try {
+                // Read current clipboard to check if it's still our text
+                // Browsers often restrict reading clipboard without permission,
+                // so we just blindly clear it for security.
+                await navigator.clipboard.writeText('');
+            } catch {
+                // Fallback clear
+                const el = document.createElement('textarea');
+                el.value = '';
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+            }
+        }, autoClearMs);
+    }
+
+    return success;
 }
 
 /* ================================================
