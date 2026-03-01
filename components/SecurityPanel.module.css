@@ -1,0 +1,230 @@
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.title {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+}
+
+.subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* Big Score Card */
+.scoreCard {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 28px;
+    box-shadow: var(--shadow-card);
+}
+
+.scoreText {
+    display: flex;
+    flex-direction: column;
+}
+
+.scoreBig {
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: -0.06em;
+    line-height: 1;
+}
+
+.scoreOf {
+    font-size: 18px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.scoreLabel {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.scoreDesc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.statCard {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.statIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+
+.statCount {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+.statLabel {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.statBar {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.statBarFill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Action sections */
+.actionSection {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+}
+
+.sectionTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.actionList {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.actionItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border-radius: var(--radius-md);
+    gap: 12px;
+    transition: background var(--transition-fast);
+}
+
+.actionItem:hover {
+    background: var(--bg-card-hover);
+}
+
+.actionLeft {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.actionName {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.actionUser {
+    font-size: 12px;
+    color: var(--text-tertiary);
+}
+
+.actionStrength {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: capitalize;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* Category list */
+.categoryList {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.categoryItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-input);
+    border-radius: var(--radius-md);
+}
+
+.catEmoji {
+    font-size: 16px;
+    width: 24px;
+    text-align: center;
+}
+
+.catName {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.catCount {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .scoreCard {
+        flex-direction: column;
+        text-align: center;
+    }
+}
