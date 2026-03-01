@@ -1,5 +1,4 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
 
 // Define public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
@@ -9,13 +8,6 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-    // Rate limiting headers for API routes
-    if (req.nextUrl.pathname.startsWith("/api/vault")) {
-        const res = NextResponse.next();
-        res.headers.set("X-RateLimit-Policy", "100;w=60"); // hint for Vercel edge
-        return res;
-    }
-
     // Protect non-public routes
     if (!isPublicRoute(req)) {
         await auth.protect();

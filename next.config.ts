@@ -15,11 +15,20 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://clerk.io https://*.clerk.accounts.dev https://js.clerk.dev",
+              // Scripts: Clerk JS + Cloudflare Turnstile (CAPTCHA)
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.clerk.accounts.dev https://*.clerk.dev https://clerk.io https://js.clerk.dev https://challenges.cloudflare.com",
+              // Styles: inline for Clerk + Google Fonts
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https://www.google.com https://img.clerk.com",
-              "connect-src 'self' https://*.clerk.accounts.dev https://*.supabase.co https://api.resend.com https://haveibeenpwned.com",
+              // Fonts: Google Fonts
+              "font-src 'self' https://fonts.gstatic.com data:",
+              // Images: favicons, Clerk avatars, Google user images
+              "img-src 'self' data: blob: https://www.google.com https://img.clerk.com https://*.googleusercontent.com",
+              // API calls: Clerk, Supabase, HIBP (breach checks)
+              "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.dev https://*.supabase.co wss://*.supabase.co https://api.pwnedpasswords.com https://api.haveibeenpwned.com",
+              // Frames: Turnstile CAPTCHA loads in an iframe
+              "frame-src https://challenges.cloudflare.com https://*.clerk.accounts.dev",
+              // Workers: service worker
+              "worker-src 'self' blob:",
               "frame-ancestors 'none'",
             ].join("; "),
           },
@@ -32,15 +41,11 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // PWA: serve manifest and service worker
-  async rewrites() {
-    return [];
-  },
-
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "www.google.com" },
       { protocol: "https", hostname: "img.clerk.com" },
+      { protocol: "https", hostname: "**.googleusercontent.com" },
     ],
   },
 };

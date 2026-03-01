@@ -132,7 +132,7 @@ export default function LockScreen() {
             // Now unlock with new PIN
             const { listVaultItems } = await import('@/lib/vault-api');
             const { decryptCredentialData } = await import('@/lib/crypto');
-            const { getPasswordStrength, guessCategoryFromName } = await import('@/lib/utils');
+            const { getPasswordStrength } = await import('@/lib/utils');
             const rows = await listVaultItems();
             const credentials = await Promise.all(rows.map(async (row) => {
                 let dec: { username: string; password: string; notes: string } = { username: '', password: '', notes: '' };
