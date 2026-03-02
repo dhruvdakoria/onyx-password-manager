@@ -8,9 +8,10 @@ export async function GET(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const supabase = createServerSupabaseClient();
+    // HIGH-1: Only return id + encrypted blob + timestamps — no plaintext metadata
     const { data, error } = await supabase
         .from('vault_items')
-        .select('id, name, category, is_favorite, url, encrypted_data, created_at, updated_at')
+        .select('id, encrypted_data, created_at, updated_at')
         .eq('clerk_user_id', userId)
         .order('updated_at', { ascending: false });
 
@@ -24,24 +25,25 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { name, category, is_favorite, url, encrypted_data } = body;
+    const { encrypted_data } = body;
 
-    if (!name || !encrypted_data) {
-        return NextResponse.json({ error: 'Missing name or encrypted_data' }, { status: 400 });
+    if (!encrypted_data) {
+        return NextResponse.json({ error: 'Missing encrypted_data' }, { status: 400 });
     }
 
     const supabase = createServerSupabaseClient();
+    // HIGH-1: Store only opaque placeholders for plaintext columns — real data is in encrypted_data
     const { data, error } = await supabase
         .from('vault_items')
         .insert({
             clerk_user_id: userId,
-            name,
-            category: category ?? 'other',
-            is_favorite: is_favorite ?? false,
-            url: url ?? null,
+            name: 'encrypted',
+            category: 'other',
+            is_favorite: false,
+            url: null,
             encrypted_data,
         })
-        .select()
+        .select('id, encrypted_data, created_at, updated_at')
         .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

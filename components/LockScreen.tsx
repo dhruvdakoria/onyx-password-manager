@@ -104,8 +104,12 @@ export default function LockScreen() {
                                 let dec: any = {};
                                 try { dec = await decryptCredentialData(row.encrypted_data, recoveredMasterKey); } catch { }
                                 return {
-                                    id: row.id, name: dec.name ?? row.name, category: (dec.category ?? row.category) as import('@/lib/types').Category,
-                                    isFavorite: dec.is_favorite ?? row.is_favorite, url: dec.url ?? (row as { url?: string }).url,
+                                    id: row.id,
+                                    // HIGH-1: All metadata from encrypted_data only
+                                    name: dec.name ?? 'Unknown',
+                                    category: (dec.category ?? 'other') as import('@/lib/types').Category,
+                                    isFavorite: dec.is_favorite ?? false,
+                                    url: dec.url ?? undefined,
                                     username: dec.username, password: dec.password, notes: dec.notes,
                                     passwordStrength: getPasswordStrength(dec.password) as import('@/lib/types').PasswordStrength,
                                     tags: [], createdAt: new Date(row.created_at).getTime(), updatedAt: new Date(row.updated_at).getTime(),

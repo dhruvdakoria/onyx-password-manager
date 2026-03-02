@@ -1,3 +1,4 @@
+import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -7,6 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
  * The server checks the suffix locally, so HIBP never learns the full hash.
  */
 export async function POST(req: NextRequest) {
+    // NEW-1: Require authentication to prevent abuse as a free breach oracle
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const { password } = await req.json().catch(() => ({ password: '' }));
     if (!password) return NextResponse.json({ breached: false });
 

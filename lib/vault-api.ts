@@ -60,10 +60,7 @@ export async function updatePinEncryption(config: {
 
 export interface VaultItemRow {
     id: string;
-    name: string;
-    category: string;
-    is_favorite: boolean;
-    encrypted_data: string;  // ciphertext of { username, password, notes }
+    encrypted_data: string;  // ciphertext of { username, password, notes, name, category, is_favorite, url }
     created_at: string;
     updated_at: string;
 }
@@ -73,10 +70,6 @@ export async function listVaultItems(): Promise<VaultItemRow[]> {
 }
 
 export async function createVaultItem(item: {
-    name: string;
-    category: string;
-    is_favorite: boolean;
-    url?: string;
     encrypted_data: string;
 }): Promise<VaultItemRow> {
     return apiFetch<VaultItemRow>('/api/vault', {
@@ -87,13 +80,7 @@ export async function createVaultItem(item: {
 
 export async function updateVaultItem(
     id: string,
-    item: Partial<{
-        name: string;
-        category: string;
-        is_favorite: boolean;
-        url?: string;
-        encrypted_data: string;
-    }>
+    item: { encrypted_data: string }
 ): Promise<VaultItemRow> {
     return apiFetch<VaultItemRow>(`/api/vault/${id}`, {
         method: 'PATCH',

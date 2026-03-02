@@ -13,11 +13,15 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    // Only allow updating these fields
-    const allowed = ['name', 'category', 'is_favorite', 'url', 'encrypted_data'];
+    // HIGH-1: Only allow updating encrypted_data — all metadata lives inside the encrypted blob
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    for (const key of allowed) {
-        if (key in body) updates[key] = body[key];
+    if ('encrypted_data' in body) {
+        updates.encrypted_data = body.encrypted_data;
+        // Force plaintext columns to opaque values
+        updates.name = 'encrypted';
+        updates.category = 'other';
+        updates.is_favorite = false;
+        updates.url = null;
     }
 
     const supabase = createServerSupabaseClient();
@@ -28,7 +32,7 @@ export async function PATCH(
         .update(updates)
         .eq('id', id)
         .eq('clerk_user_id', userId) // enforce ownership
-        .select()
+        .select('id, encrypted_data, created_at, updated_at')
         .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

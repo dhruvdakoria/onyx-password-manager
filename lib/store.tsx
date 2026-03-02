@@ -225,10 +225,11 @@ export function StoreProvider({ children, initialSignedIn = false }: { children:
                     }
                     return {
                         id: row.id,
-                        name: decrypted.name ?? row.name,
-                        category: (decrypted.category ?? row.category) as Category,
-                        isFavorite: decrypted.is_favorite ?? row.is_favorite,
-                        url: decrypted.url ?? (row as { url?: string }).url,
+                        // HIGH-1: All metadata comes from encrypted_data only
+                        name: decrypted.name ?? 'Unknown',
+                        category: (decrypted.category ?? 'other') as Category,
+                        isFavorite: decrypted.is_favorite ?? false,
+                        url: decrypted.url ?? undefined,
                         username: decrypted.username ?? '',
                         password: decrypted.password ?? '',
                         notes: decrypted.notes ?? '',
@@ -273,20 +274,17 @@ export function StoreProvider({ children, initialSignedIn = false }: { children:
             state.masterKey
         );
 
+        // HIGH-1: Only send encrypted_data — no plaintext metadata
         const row = await createVaultItem({
-            name: "encrypted",
-            category: "other",
-            is_favorite: false,
-            url: "",
             encrypted_data,
         });
 
         const cred: Credential = {
             id: row.id,
-            name: row.name,
-            category: row.category as Category,
-            isFavorite: row.is_favorite,
-            url: (row as { url?: string }).url,
+            name: data.name,
+            category: data.category ?? guessCategoryFromName(data.name) as Category,
+            isFavorite: false,
+            url: data.url,
             username: data.username,
             password: data.password,
             notes: data.notes,
@@ -336,13 +334,8 @@ export function StoreProvider({ children, initialSignedIn = false }: { children:
             state.masterKey
         );
 
-        await updateVaultItem(id, {
-            name: "encrypted",
-            category: "other",
-            is_favorite: false,
-            url: "",
-            encrypted_data,
-        });
+        // HIGH-1: Only send encrypted_data
+        await updateVaultItem(id, { encrypted_data });
 
         const updated = {
             ...data,
@@ -397,7 +390,7 @@ export function StoreProvider({ children, initialSignedIn = false }: { children:
             state.masterKey
         );
 
-        await updateVaultItem(id, { encrypted_data, is_favorite: false });
+        await updateVaultItem(id, { encrypted_data });
     }, [state.credentials, state.masterKey]);
 
     return (

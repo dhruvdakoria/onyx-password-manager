@@ -15,24 +15,9 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
           // MED-3
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+          { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
-          {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",
-              // HIGH-3: removed unsafe-eval but kept unsafe-inline for Next.js hydration
-              "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://*.clerk.dev https://clerk.io https://js.clerk.dev https://challenges.cloudflare.com",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com data:",
-              "img-src 'self' data: blob: https://www.google.com https://img.clerk.com https://*.googleusercontent.com",
-              // API calls: Clerk, Supabase, internal (HIBP proxied by MED-4 so we remove it from connect-src)
-              "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.dev https://*.supabase.co wss://*.supabase.co",
-              "frame-src https://challenges.cloudflare.com https://*.clerk.accounts.dev",
-              "worker-src 'self' blob:",
-              "frame-ancestors 'none'",
-            ].join("; "),
-          },
+          // MED-2: CSP is now set per-request in middleware.ts with a nonce (no longer here)
           {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
