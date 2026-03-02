@@ -21,8 +21,8 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              // HIGH-3: removed unsafe-inline and unsafe-eval
-              "script-src 'self' https://*.clerk.accounts.dev https://*.clerk.dev https://clerk.io https://js.clerk.dev https://challenges.cloudflare.com",
+              // HIGH-3: removed unsafe-eval but kept unsafe-inline for Next.js hydration
+              "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://*.clerk.dev https://clerk.io https://js.clerk.dev https://challenges.cloudflare.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: blob: https://www.google.com https://img.clerk.com https://*.googleusercontent.com",
