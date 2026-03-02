@@ -145,7 +145,7 @@ export async function changePinEncryption(
 
 /** Encrypt credential sensitive fields before storing in Supabase. */
 export async function encryptCredentialData(
-    data: { username: string; password: string; notes?: string },
+    data: { username: string; password: string; notes?: string; name?: string; category?: string; is_favorite?: boolean; url?: string },
     masterKey: CryptoKey
 ): Promise<string> {
     const enc = new TextEncoder();
@@ -156,7 +156,7 @@ export async function encryptCredentialData(
 export async function decryptCredentialData(
     ciphertext: string,
     masterKey: CryptoKey
-): Promise<{ username: string; password: string; notes?: string }> {
+): Promise<{ username: string; password: string; notes?: string; name?: string; category?: string; is_favorite?: boolean; url?: string }> {
     const dec = new TextDecoder();
     const plaintext = await aesDecrypt(ciphertext, masterKey);
     return JSON.parse(dec.decode(plaintext));

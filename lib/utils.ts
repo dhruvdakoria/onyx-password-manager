@@ -79,12 +79,12 @@ export function getFaviconUrl(name: string, url?: string): string {
     if (url) {
         try {
             const domain = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
-            return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+            return `/api/favicon?domain=${domain}`;
         } catch { }
     }
     // Guess domain from name
     const domain = `${name.toLowerCase().replace(/\s+/g, '')}.com`;
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+    return `/api/favicon?domain=${domain}`;
 }
 
 /* ================================================

@@ -217,23 +217,22 @@ export function StoreProvider({ children, initialSignedIn = false }: { children:
             // Decrypt all items client-side using the masterKey
             const credentials: Credential[] = await Promise.all(
                 rows.map(async (row) => {
-                    let decrypted: { username: string; password: string; notes: string } = { username: '', password: '', notes: '' };
+                    let decrypted: any = {};
                     try {
-                        const d = await decryptCredentialData(row.encrypted_data, masterKey);
-                        decrypted = { username: d.username, password: d.password, notes: d.notes ?? '' };
+                        decrypted = await decryptCredentialData(row.encrypted_data, masterKey);
                     } catch {
                         console.warn('Failed to decrypt item:', row.id);
                     }
                     return {
                         id: row.id,
-                        name: row.name,
-                        category: row.category as Category,
-                        isFavorite: row.is_favorite,
-                        url: (row as { url?: string }).url,
-                        username: decrypted.username,
-                        password: decrypted.password,
+                        name: decrypted.name ?? row.name,
+                        category: (decrypted.category ?? row.category) as Category,
+                        isFavorite: decrypted.is_favorite ?? row.is_favorite,
+                        url: decrypted.url ?? (row as { url?: string }).url,
+                        username: decrypted.username ?? '',
+                        password: decrypted.password ?? '',
                         notes: decrypted.notes ?? '',
-                        passwordStrength: getPasswordStrength(decrypted.password) as PasswordStrength,
+                        passwordStrength: getPasswordStrength(decrypted.password ?? '') as PasswordStrength,
                         tags: [],
                         createdAt: new Date(row.created_at).getTime(),
                         updatedAt: new Date(row.updated_at).getTime(),
@@ -262,15 +261,23 @@ export function StoreProvider({ children, initialSignedIn = false }: { children:
 
         // Encrypt sensitive fields before sending to server
         const encrypted_data = await encryptCredentialData(
-            { username: data.username, password: data.password, notes: data.notes },
+            {
+                username: data.username,
+                password: data.password,
+                notes: data.notes,
+                name: data.name,
+                category: data.category ?? guessCategoryFromName(data.name),
+                url: data.url,
+                is_favorite: false
+            },
             state.masterKey
         );
 
         const row = await createVaultItem({
-            name: data.name,
-            category: data.category ?? guessCategoryFromName(data.name),
+            name: "encrypted",
+            category: "other",
             is_favorite: false,
-            url: data.url,
+            url: "",
             encrypted_data,
         });
 
@@ -317,15 +324,23 @@ export function StoreProvider({ children, initialSignedIn = false }: { children:
 
         const merged = { ...existing, ...data };
         const encrypted_data = await encryptCredentialData(
-            { username: merged.username, password: merged.password, notes: merged.notes },
+            {
+                username: merged.username,
+                password: merged.password,
+                notes: merged.notes,
+                name: merged.name,
+                category: merged.category,
+                url: merged.url,
+                is_favorite: merged.isFavorite
+            },
             state.masterKey
         );
 
         await updateVaultItem(id, {
-            name: merged.name,
-            category: merged.category,
-            is_favorite: merged.isFavorite,
-            url: merged.url,
+            name: "encrypted",
+            category: "other",
+            is_favorite: false,
+            url: "",
             encrypted_data,
         });
 
@@ -362,11 +377,28 @@ export function StoreProvider({ children, initialSignedIn = false }: { children:
 
     // Toggle favorite (optimistic update)
     const toggleFavorite = useCallback(async (id: string) => {
+        if (!state.masterKey) return;
         const cred = state.credentials.find(c => c.id === id);
         if (!cred) return;
+
+        const newFav = !cred.isFavorite;
         dispatch({ type: 'TOGGLE_FAVORITE', id });
-        await updateVaultItem(id, { is_favorite: !cred.isFavorite });
-    }, [state.credentials]);
+
+        const encrypted_data = await encryptCredentialData(
+            {
+                username: cred.username,
+                password: cred.password,
+                notes: cred.notes,
+                name: cred.name,
+                category: cred.category,
+                url: cred.url,
+                is_favorite: newFav
+            },
+            state.masterKey
+        );
+
+        await updateVaultItem(id, { encrypted_data, is_favorite: false });
+    }, [state.credentials, state.masterKey]);
 
     return (
         <StoreContext.Provider value={{

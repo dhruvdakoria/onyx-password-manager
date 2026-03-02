@@ -27,6 +27,8 @@ export default function LockScreen() {
     const [lockoutRemaining, setLockoutRemaining] = useState(0);
     const lockoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    const [recoveredMasterKey, setRecoveredMasterKey] = useState<CryptoKey | null>(null);
+
     // Keep mode in sync with vault config loading
     useEffect(() => {
         if (!state.hasPinSetup && mode === 'unlock') setMode('setup-new');
@@ -59,16 +61,6 @@ export default function LockScreen() {
         setTimeout(() => setShake(false), 600);
     };
 
-    const applyLockout = (attempts: number) => {
-        if (attempts >= 10) {
-            setLockoutUntil(Date.now() + 5 * 60 * 1000); // 5 minutes
-            toast('Too many attempts. Locked for 5 minutes.', 'error');
-        } else if (attempts >= 5) {
-            setLockoutUntil(Date.now() + 30 * 1000); // 30 seconds
-            toast('Too many attempts. Locked for 30 seconds.', 'error');
-        }
-    };
-
     const handleDigit = useCallback(async (digit: string) => {
         if (isSubmitting || isLockedOut) return;
 
@@ -98,7 +90,31 @@ export default function LockScreen() {
                 } else {
                     setIsSubmitting(true);
                     try {
-                        await setupPin(updated);
+                        if (recoveredMasterKey) {
+                            const { pinSalt, encryptedMasterKeyWithPin } = await changePinEncryption(recoveredMasterKey, updated);
+                            await updatePinEncryption({ pinSalt, encryptedMasterKeyWithPin });
+                            toast('PIN reset successfully! Unlocking vault…', 'success');
+
+                            // Load vault items
+                            const { listVaultItems } = await import('@/lib/vault-api');
+                            const { decryptCredentialData } = await import('@/lib/crypto');
+                            const { getPasswordStrength } = await import('@/lib/utils');
+                            const rows = await listVaultItems();
+                            const credentials = await Promise.all(rows.map(async (row) => {
+                                let dec: any = {};
+                                try { dec = await decryptCredentialData(row.encrypted_data, recoveredMasterKey); } catch { }
+                                return {
+                                    id: row.id, name: dec.name ?? row.name, category: (dec.category ?? row.category) as import('@/lib/types').Category,
+                                    isFavorite: dec.is_favorite ?? row.is_favorite, url: dec.url ?? (row as { url?: string }).url,
+                                    username: dec.username, password: dec.password, notes: dec.notes,
+                                    passwordStrength: getPasswordStrength(dec.password) as import('@/lib/types').PasswordStrength,
+                                    tags: [], createdAt: new Date(row.created_at).getTime(), updatedAt: new Date(row.updated_at).getTime(),
+                                };
+                            }));
+                            dispatch({ type: 'VAULT_UNLOCKED', masterKey: recoveredMasterKey, credentials });
+                        } else {
+                            await setupPin(updated);
+                        }
                     } catch {
                         setIsSubmitting(false);
                         setConfirmPin('');
@@ -113,27 +129,47 @@ export default function LockScreen() {
             setPin(updated);
             if (updated.length === MAX_PIN_LENGTH) {
                 setIsSubmitting(true);
+
+                // Add lockout checking from server logic (HIGH-4)
                 try {
-                    await unlockVault(updated);
-                    setWrongAttempts(0); // Reset on success
-                } catch (err: unknown) {
+                    const checkRes = await fetch('/api/vault/unlock', { method: 'POST', body: JSON.stringify({ success: false }) });
+                    if (checkRes.status === 429) {
+                        const { retryAfter } = await checkRes.json();
+                        setLockoutUntil(Date.now() + retryAfter * 1000);
+                        setPin('');
+                        setIsSubmitting(false);
+                        return;
+                    }
+
+                    try {
+                        await unlockVault(updated);
+                        setWrongAttempts(0); // Reset on success
+                        await fetch('/api/vault/unlock', { method: 'POST', body: JSON.stringify({ success: true }) });
+                    } catch (err: unknown) {
+                        setPin('');
+                        setIsSubmitting(false);
+                        if (err instanceof Error && err.message === 'WRONG_PIN') {
+                            const { failCount, locked, retryAfter } = await checkRes.json();
+                            triggerShake();
+                            if (locked) {
+                                setLockoutUntil(Date.now() + retryAfter * 1000);
+                            } else {
+                                toast(`Incorrect PIN. ${5 - failCount} attempts remaining.`, 'error');
+                            }
+                        } else {
+                            toast('Could not connect. Check network and try again.', 'error');
+                        }
+                    }
+                } catch {
+                    // Fallback to client-side logic if API is unreachable
                     setPin('');
                     setIsSubmitting(false);
-                    if (err instanceof Error && err.message === 'WRONG_PIN') {
-                        const attempts = wrongAttempts + 1;
-                        setWrongAttempts(attempts);
-                        triggerShake();
-                        applyLockout(attempts);
-                        if (attempts < 5) {
-                            toast(`Incorrect PIN. ${5 - attempts} attempts remaining.`, 'error');
-                        }
-                    } else {
-                        toast('Could not connect. Check network and try again.', 'error');
-                    }
+                    triggerShake();
+                    toast('Network error during unlock.', 'error');
                 }
             }
         }
-    }, [mode, newPin, confirmPin, pin, isSubmitting, wrongAttempts, setupPin, unlockVault, toast]);
+    }, [mode, newPin, confirmPin, pin, isSubmitting, wrongAttempts, setupPin, unlockVault, toast, recoveredMasterKey, dispatch]);
 
     const handleDelete = useCallback(() => {
         if (mode === 'setup-new') setNewPin(p => p.slice(0, -1));
@@ -154,36 +190,10 @@ export default function LockScreen() {
             // Recover the master key
             const masterKey = await unlockWithRecoveryKey(recoveryInput.trim(), config.encryptedMasterKeyWithRecovery);
 
-            // Prompt for new PIN
-            const newPinVal = prompt('Recovery successful! Enter a new 6-digit PIN:');
-            if (!newPinVal || newPinVal.length !== 6 || !/^\d{6}$/.test(newPinVal)) {
-                toast('Invalid PIN. Must be exactly 6 digits.', 'error');
-                setIsSubmitting(false);
-                return;
-            }
-
-            // Re-encrypt master key with new PIN
-            const { pinSalt, encryptedMasterKeyWithPin } = await changePinEncryption(masterKey, newPinVal);
-            await updatePinEncryption({ pinSalt, encryptedMasterKeyWithPin });
-
-            toast('PIN reset successfully! Unlocking vault…', 'success');
-            // Now unlock with new PIN
-            const { listVaultItems } = await import('@/lib/vault-api');
-            const { decryptCredentialData } = await import('@/lib/crypto');
-            const { getPasswordStrength } = await import('@/lib/utils');
-            const rows = await listVaultItems();
-            const credentials = await Promise.all(rows.map(async (row) => {
-                let dec: { username: string; password: string; notes: string } = { username: '', password: '', notes: '' };
-                try { const d = await decryptCredentialData(row.encrypted_data, masterKey); dec = { username: d.username, password: d.password, notes: d.notes ?? '' }; } catch { }
-                return {
-                    id: row.id, name: row.name, category: row.category as import('@/lib/types').Category,
-                    isFavorite: row.is_favorite, url: (row as { url?: string }).url,
-                    username: dec.username, password: dec.password, notes: dec.notes,
-                    passwordStrength: getPasswordStrength(dec.password) as import('@/lib/types').PasswordStrength,
-                    tags: [], createdAt: new Date(row.created_at).getTime(), updatedAt: new Date(row.updated_at).getTime(),
-                };
-            }));
-            dispatch({ type: 'VAULT_UNLOCKED', masterKey, credentials });
+            // Set state to re-prompt smoothly (FIX HIGH-2)
+            setRecoveredMasterKey(masterKey);
+            setMode('setup-new');
+            toast('Recovery key verified. Set a new PIN.', 'success');
         } catch (err: unknown) {
             if (err instanceof Error && err.message === 'INVALID_RECOVERY_KEY') {
                 triggerShake();
@@ -194,7 +204,7 @@ export default function LockScreen() {
         } finally {
             setIsSubmitting(false);
         }
-    }, [recoveryInput, dispatch, toast]);
+    }, [recoveryInput, toast]);
 
     const currentLen = mode === 'setup-new' ? newPin.length : mode === 'setup-confirm' ? confirmPin.length : pin.length;
 
@@ -296,10 +306,6 @@ export default function LockScreen() {
 
                         {mode === 'unlock' && (
                             <div className={styles.bottomLinks}>
-                                <button className={styles.biometricBtn}>
-                                    <Fingerprint size={18} />
-                                    <span>Face ID</span>
-                                </button>
                                 <button className={styles.forgotBtn} onClick={() => setMode('recovery')}>
                                     <RotateCcw size={14} />
                                     <span>Forgot PIN</span>
